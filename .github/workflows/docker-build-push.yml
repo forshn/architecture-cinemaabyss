@@ -128,50 +128,31 @@ jobs:
 
       - name: Compose up services for API tests
         run: |
-          # Start infrastructure first
           docker compose up -d postgres zookeeper kafka
-
-          # Wait for Postgres to be ready
-          for i in {1..30}; do
-            if docker compose exec -T postgres pg_isready -U postgres; then
-              echo "Postgres is ready"
-              break
-            fi
-            echo "Waiting for Postgres... attempt $i"
-            sleep 5
-          done
-
-          # Start core application services (monolith, movies)
-          docker compose up -d --build monolith movies-service
-
-          # Wait for monolith and movies to respond
-          for i in {1..60}; do
-            MONO_OK=$(curl -fsS http://localhost:8080/health || true)
-            MOV_OK=$(curl -fsS http://localhost:8081/api/movies/health || true)
-            if [ -n "$MONO_OK" ] && [ -n "$MOV_OK" ]; then
-              echo "Monolith and Movies are responding"
-              break
-            fi
-            echo "Waiting for monolith/movies... attempt $i"
-            sleep 5
-          done
-
-          # Start remaining services (events, proxy)
-          docker compose up -d --build events-service proxy-service
-
-          # Wait for events and proxy to respond
-          for i in {1..60}; do
-            EV_OK=$(curl -fsS http://localhost:8082/actuator/health || curl -fsS http://localhost:8082/health || true)
-            PROXY_OK=$(curl -fsS http://localhost:8000/actuator/health || curl -fsS http://localhost:8000/health || true)
-            if [ -n "$EV_OK" ] && [ -n "$PROXY_OK" ]; then
-              echo "Events and Proxy are responding"
-              break
-            fi
-            echo "Waiting for events/proxy... attempt $i"
-            sleep 5
-          done
-
+          if docker compose wait --help >/dev/null 2>&1; then
+            docker compose wait postgres || true
+          else
+            for i in {1..30}; do
+              if docker compose exec -T postgres pg_isready -U postgres; then
+                break
+              fi
+              sleep 2
+            done
+          fi
+          docker compose up -d --build monolith movies-service events-service proxy-service
           docker compose ps
+
+      - name: Wait for HTTP health
+        uses: Jtalk/url-health-check-action@v3
+        with:
+          url: |
+            http://localhost:8080/health
+            http://localhost:8081/api/movies/health
+            http://localhost:8082/actuator/health
+            http://localhost:8000/actuator/health
+          max-attempts: 60
+          retry-delay: 5s
+          timeout: 5s
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
