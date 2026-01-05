@@ -139,7 +139,8 @@ jobs:
               sleep 2
             done
           fi
-          docker compose up -d --build monolith movies-service events-service proxy-service
+          docker compose build --progress=plain monolith movies-service events-service proxy-service
+          docker compose up -d monolith movies-service events-service proxy-service
           docker compose ps
 
       - name: Wait for HTTP health
