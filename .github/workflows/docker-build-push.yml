@@ -129,14 +129,19 @@ jobs:
       - name: Compose up services for API tests
         run: |
           docker compose up -d --build
-          for i in {1..30}; do
-            if curl -fsS http://localhost:8000/actuator/health || curl -fsS http://localhost:8000/health || curl -fsS http://localhost:8082/actuator/health; then
-              echo "Services are responding"
+          for i in {1..60}; do
+            MONO_OK=$(curl -fsS http://localhost:8080/health || true)
+            MOV_OK=$(curl -fsS http://localhost:8081/api/movies/health || true)
+            EV_OK=$(curl -fsS http://localhost:8082/actuator/health || curl -fsS http://localhost:8082/health || true)
+            PROXY_OK=$(curl -fsS http://localhost:8000/actuator/health || curl -fsS http://localhost:8000/health || true)
+            if [ -n "$MONO_OK" ] && [ -n "$MOV_OK" ] && [ -n "$EV_OK" ] && [ -n "$PROXY_OK" ]; then
+              echo "All services are responding"
               break
             fi
             echo "Waiting for services... attempt $i"
             sleep 5
           done
+          docker compose ps
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -148,6 +153,10 @@ jobs:
           cd tests/postman
           npm ci
           npm run test:local
+
+      - name: Show compose logs (on failure)
+        if: failure()
+        run: docker compose logs --no-color
 
       - name: Compose down services
         if: always()
