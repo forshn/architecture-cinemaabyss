@@ -128,6 +128,24 @@ jobs:
 
       - name: Compose up services for API tests
         run: |
+          # Create override to use GHCR images (no local build)
+          cat > docker-compose.ci.override.yml <<'YAML'
+          services:
+            monolith:
+              image: ${{ env.REGISTRY }}/${{ env.MONOLITH_IMAGE_NAME }}:latest
+              build: null
+            movies-service:
+              image: ${{ env.REGISTRY }}/${{ env.MOVIES_SERVICE_IMAGE_NAME }}:latest
+              build: null
+            events-service:
+              image: ${{ env.REGISTRY }}/${{ env.EVENTS_SERVICE_IMAGE_NAME }}:latest
+              build: null
+            proxy-service:
+              image: ${{ env.REGISTRY }}/${{ env.PROXY_SERVICE_IMAGE_NAME }}:latest
+              build: null
+          YAML
+
+          # Start infra first
           docker compose up -d postgres zookeeper kafka
           if docker compose wait --help >/dev/null 2>&1; then
             docker compose wait postgres || true
@@ -139,8 +157,8 @@ jobs:
               sleep 2
             done
           fi
-          docker compose build --progress=plain monolith movies-service events-service proxy-service
-          docker compose up -d monolith movies-service events-service proxy-service
+          
+          docker compose -f docker-compose.yml -f docker-compose.ci.override.yml up -d --no-build
           docker compose ps
 
       - name: Wait for HTTP health
