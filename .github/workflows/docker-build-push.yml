@@ -128,10 +128,16 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Create CI docker-compose override (only events & proxy)
+      - name: Create CI docker-compose override
         run: |
           cat > docker-compose.ci.override.yml <<'YAML'
           services:
+            monolith:
+              image: ${{ env.REGISTRY }}/${{ env.MONOLITH_IMAGE_NAME }}:latest
+              build: null
+            movies-service:
+              image: ${{ env.REGISTRY }}/${{ env.MOVIES_SERVICE_IMAGE_NAME }}:latest
+              build: null
             events-service:
               image: ${{ env.REGISTRY }}/${{ env.EVENTS_SERVICE_IMAGE_NAME }}:latest
               build: null
@@ -140,8 +146,9 @@ jobs:
               build: null
           YAML
 
-      - name: Compose up services for API tests
+      - name: Compose pull and up services for API tests
         run: |
+          docker compose -f docker-compose.yml -f docker-compose.ci.override.yml pull
           docker compose -f docker-compose.yml -f docker-compose.ci.override.yml up -d --no-build
           for i in {1..30}; do
             if curl -fsS http://localhost:8000/actuator/health || curl -fsS http://localhost:8000/health || curl -fsS http://localhost:8082/actuator/health; then
