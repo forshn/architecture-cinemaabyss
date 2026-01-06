@@ -2,32 +2,28 @@ name: API Tests
 
 on:
   push:
-    branches: [ main, feature/Cinema  ]
+    branches: [ main, feature/Cinema ]
     paths:
       - 'src/**'
       - 'docker-compose.yml'
       - 'tests/postman/**'
       - '.github/workflows/api-tests.yml'
   pull_request:
-    branches: [ main, feature/Cinema  ]
+    branches: [ main, feature/Cinema ]
+  workflow_run:
+    workflows: ["Docker Build and Push"]
+    types: [completed]
   workflow_dispatch:
-    inputs:
-      environment:
-        description: 'Environment to run tests against'
-        required: true
-        default: 'docker'
-        type: choice
-        options:
-          - docker
-          - local
-      test_folder:
-        description: 'Test folder to run (leave empty for all)'
-        required: false
-        type: string
+
+concurrency:
+  group: api-tests-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   api-tests:
     name: Run API Tests
+    if: |
+      ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event_name == 'pull_request' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
     runs-on: ubuntu-latest
 
     steps:
@@ -58,6 +54,37 @@ jobs:
               image: ghcr.io/${{ github.repository }}/proxy-service:latest
               build: null
           YAML
+
+      - name: Wait for images in GHCR (with retries)
+        run: |
+          set -e
+          images=(
+            "ghcr.io/${{ github.repository }}/monolith:latest"
+            "ghcr.io/${{ github.repository }}/movies-service:latest"
+            "ghcr.io/${{ github.repository }}/events-service:latest"
+            "ghcr.io/${{ github.repository }}/proxy-service:latest"
+          )
+          for img in "${images[@]}"; do
+            echo "Waiting for image $img"
+            ok=false
+            for i in {1..30}; do
+              if docker manifest inspect "$img" >/dev/null 2>&1; then
+                echo "Found: $img"
+                ok=true
+                break
+              fi
+              echo "Not available yet ($i), retry in 10s"
+              sleep 10
+            done
+            if [ "$ok" != true ]; then
+              echo "ERROR: $img not available in GHCR"
+              exit 1
+            fi
+          done
+
+      - name: Pull images
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.ci.override.yml pull
 
       - name: Start services (infra first, then apps)
         run: |
