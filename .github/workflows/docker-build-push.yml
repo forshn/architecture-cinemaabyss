@@ -130,14 +130,9 @@ jobs:
             type=ref,event=branch
             latest
 
-      - name: Ensure proxy Gradle wrapper jar
-        run: cp ./src/microservices/events/gradle/wrapper/gradle-wrapper.jar ./src/microservices/proxy/gradle/wrapper/
-
       - name: Build proxy jar
         working-directory: ./src/microservices/proxy
-        run: |
-          chmod +x ./gradlew
-          ./gradlew --no-daemon clean bootJar
+        run: gradle --no-daemon clean bootJar
 
       - name: Build and push Proxy Service Docker image
         uses: docker/build-push-action@v5
