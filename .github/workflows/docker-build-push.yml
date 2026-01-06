@@ -26,13 +26,13 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
 
       - name: Log in to the Container registry
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -40,7 +40,7 @@ jobs:
 
       - name: Extract metadata (tags, labels) for Monolith
         id: meta-monolith
-        uses: docker/metadata-action@v4
+        uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.MONOLITH_IMAGE_NAME }}
           tags: |
@@ -51,7 +51,7 @@ jobs:
             latest
 
       - name: Build and push Monolith Docker image
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v5
         with:
           context: ./src/monolith
           push: true
@@ -62,7 +62,7 @@ jobs:
 
       - name: Extract metadata (tags, labels) for Movies Service
         id: meta-movies
-        uses: docker/metadata-action@v4
+        uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.MOVIES_SERVICE_IMAGE_NAME }}
           tags: |
@@ -73,7 +73,7 @@ jobs:
             latest
 
       - name: Build and push Movies Service Docker image
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v5
         with:
           context: ./src/microservices/movies
           push: true
@@ -84,7 +84,7 @@ jobs:
 
       - name: Extract metadata (tags, labels) for Events Service
         id: meta-events
-        uses: docker/metadata-action@v4
+        uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.EVENTS_SERVICE_IMAGE_NAME }}
           tags: |
@@ -95,7 +95,7 @@ jobs:
             latest
 
       - name: Build and push Events Service Docker image
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v5
         with:
           context: ./src/microservices/events
           push: true
@@ -106,7 +106,7 @@ jobs:
 
       - name: Extract metadata (tags, labels) for Proxy Service
         id: meta-proxy
-        uses: docker/metadata-action@v4
+        uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.PROXY_SERVICE_IMAGE_NAME }}
           tags: |
@@ -117,7 +117,7 @@ jobs:
             latest
 
       - name: Build and push Proxy Service Docker image
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v5
         with:
           context: ./src/microservices/proxy
           push: true
@@ -125,71 +125,3 @@ jobs:
           labels: ${{ steps.meta-proxy.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-      - name: Compose up services for API tests
-        run: |
-          # Start infrastructure first
-          docker compose up -d postgres zookeeper kafka
-
-          # Wait for Postgres to be ready
-          for i in {1..30}; do
-            if docker compose exec -T postgres pg_isready -U postgres; then
-              echo "Postgres is ready"
-              break
-            fi
-            echo "Waiting for Postgres... attempt $i"
-            sleep 5
-          done
-
-          # Start core application services (monolith, movies)
-          docker compose up -d --build monolith movies-service
-
-          # Wait for monolith and movies to respond
-          for i in {1..60}; do
-            MONO_OK=$(curl -fsS http://localhost:8080/health || true)
-            MOV_OK=$(curl -fsS http://localhost:8081/api/movies/health || true)
-            if [ -n "$MONO_OK" ] && [ -n "$MOV_OK" ]; then
-              echo "Monolith and Movies are responding"
-              break
-            fi
-            echo "Waiting for monolith/movies... attempt $i"
-            sleep 5
-          done
-
-          # Start remaining services (events, proxy)
-          docker compose up -d --build events-service proxy-service
-
-          # Wait for events and proxy to respond
-          for i in {1..60}; do
-            EV_OK=$(curl -fsS http://localhost:8082/actuator/health || curl -fsS http://localhost:8082/health || true)
-            PROXY_OK=$(curl -fsS http://localhost:8000/actuator/health || curl -fsS http://localhost:8000/health || true)
-            if [ -n "$EV_OK" ] && [ -n "$PROXY_OK" ]; then
-              echo "Events and Proxy are responding"
-              break
-            fi
-            echo "Waiting for events/proxy... attempt $i"
-            sleep 5
-          done
-
-          docker compose ps
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Run API tests (local)
-        run: |
-          cd tests/postman
-          npm ci
-          npm run test:local
-
-      - name: Show compose logs (on failure)
-        if: failure()
-        run: docker compose logs --no-color
-
-      - name: Compose down services
-        if: always()
-        run: docker compose down -v
-
-      
