@@ -95,7 +95,7 @@ jobs:
             fi
             echo "Waiting for Postgres... attempt $i"
             sleep 2
-          end
+          done
           echo "Postgres did not become ready in time"
           docker compose logs postgres || true
           exit 1
