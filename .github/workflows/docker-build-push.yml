@@ -95,6 +95,10 @@ jobs:
             type=ref,event=branch
             latest
 
+      - name: Build events jar
+        working-directory: ./src/microservices/events
+        run: ./gradlew clean bootJar
+
       - name: Build and push Events Service Docker image
         uses: docker/build-push-action@v5
         with:
@@ -116,6 +120,10 @@ jobs:
             type=sha,format=short
             type=ref,event=branch
             latest
+
+      - name: Build proxy jar
+        working-directory: ./src/microservices/proxy
+        run: ./gradlew clean bootJar
 
       - name: Build and push Proxy Service Docker image
         uses: docker/build-push-action@v5
