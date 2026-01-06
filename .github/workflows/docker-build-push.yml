@@ -29,6 +29,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'gradle'
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -97,7 +104,9 @@ jobs:
 
       - name: Build events jar
         working-directory: ./src/microservices/events
-        run: ./gradlew clean bootJar
+        run: |
+          chmod +x ./gradlew
+          ./gradlew --no-daemon clean bootJar
 
       - name: Build and push Events Service Docker image
         uses: docker/build-push-action@v5
@@ -123,7 +132,9 @@ jobs:
 
       - name: Build proxy jar
         working-directory: ./src/microservices/proxy
-        run: ./gradlew clean bootJar
+        run: |
+          chmod +x ./gradlew
+          ./gradlew --no-daemon clean bootJar
 
       - name: Build and push Proxy Service Docker image
         uses: docker/build-push-action@v5
