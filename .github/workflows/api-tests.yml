@@ -81,23 +81,28 @@ jobs:
         run: |
           docker compose -f docker-compose.yml -f docker-compose.ci.override.yml pull
 
-      - name: Start services (infra first, then apps)
+      - name: Start infra
         run: |
-          # Start infra
           docker compose up -d postgres zookeeper kafka
-          if docker compose wait --help >/dev/null 2>&1; then
-            docker compose wait postgres || true
-          else
-            for i in {1..30}; do
-              if docker compose exec -T postgres pg_isready -U postgres; then
-                break
-              fi
-              sleep 2
-            done
-          fi
-          # Start apps from GHCR images (no build)
-          docker compose -f docker-compose.yml -f docker-compose.ci.override.yml up -d --no-build monolith movies-service
-          docker compose -f docker-compose.yml -f docker-compose.ci.override.yml up -d --no-build events-service proxy-service
+          docker compose ps
+
+      - name: Wait for Postgres
+        run: |
+          for i in {1..30}; do
+            if docker compose exec -T postgres pg_isready -U postgres; then
+              echo "Postgres is ready"
+              exit 0
+            fi
+            echo "Waiting for Postgres... attempt $i"
+            sleep 2
+          end
+          echo "Postgres did not become ready in time"
+          docker compose logs postgres || true
+          exit 1
+
+      - name: Start apps from GHCR images
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.ci.override.yml up -d --no-build monolith movies-service events-service proxy-service
           docker compose ps
 
       - name: Wait for HTTP health
