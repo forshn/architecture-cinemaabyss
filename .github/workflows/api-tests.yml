@@ -10,9 +10,6 @@ on:
       - '.github/workflows/api-tests.yml'
   pull_request:
     branches: [ main, feature/Cinema ]
-  workflow_run:
-    workflows: ["Docker Build and Push"]
-    types: [completed]
   workflow_dispatch:
 
 concurrency:
@@ -22,8 +19,6 @@ concurrency:
 jobs:
   api-tests:
     name: Run API Tests
-    if: |
-      ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event_name == 'pull_request' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
     runs-on: ubuntu-latest
 
     steps:
