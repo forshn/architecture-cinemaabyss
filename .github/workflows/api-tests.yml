@@ -9,7 +9,7 @@ on:
       - 'tests/postman/**'
       - '.github/workflows/api-tests.yml'
   pull_request:
-    branches: [ main, feature/Cinema ]
+    branches: [ main, feature/Cinema  ]
   workflow_dispatch:
     inputs:
       environment:
@@ -65,16 +65,32 @@ jobs:
           docker compose ps
 
       - name: Wait for HTTP health
-        uses: Jtalk/url-health-check-action@v3
-        with:
-          url: |
-            http://localhost:8080/health
-            http://localhost:8081/api/movies/health
-            http://localhost:8082/actuator/health
-            http://localhost:8000/actuator/health
-          max-attempts: 60
-          retry-delay: 5s
-          timeout: 5s
+        run: |
+          set -e
+          endpoints=(
+            "http://localhost:8080/health"
+            "http://localhost:8081/api/movies/health"
+            "http://localhost:8082/actuator/health"
+            "http://localhost:8000/actuator/health"
+          )
+          for url in "${endpoints[@]}"; do
+            echo "Waiting for $url"
+            ok=false
+            for i in {1..60}; do
+              if curl -fsS "$url" >/dev/null; then
+                echo "OK: $url"
+                ok=true
+                break
+              fi
+              echo "Not ready yet ($i), retry in 5s"
+              sleep 5
+            done
+            if [ "$ok" != true ]; then
+              echo "ERROR: $url did not become healthy in time"
+              docker compose logs --no-color || true
+              exit 1
+            fi
+          done
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
