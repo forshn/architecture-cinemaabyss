@@ -1,0 +1,25 @@
+server:
+  port: ${PORT:8082}
+
+spring:
+  application:
+    name: events
+  kafka:
+    bootstrap-servers: ${KAFKA_BROKERS:localhost:9092}
+    client-id: events-service
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    consumer:
+      group-id: events-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    listener:
+      missing-topics-fatal: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

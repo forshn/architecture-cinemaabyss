@@ -1,0 +1,18 @@
+server:
+  port: ${PORT:8000}
+
+proxy:
+  monolith-url: ${MONOLITH_URL:http://monolith:8080}
+  movies-url: ${MOVIES_SERVICE_URL:http://movies-service:8081}
+  events-url: ${EVENTS_SERVICE_URL:http://events-service:8082}
+  gradual-migration: ${GRADUAL_MIGRATION:true}
+  movies-migration-percent: ${MOVIES_MIGRATION_PERCENT:50}
+
+spring:
+  main:
+    web-application-type: servlet
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

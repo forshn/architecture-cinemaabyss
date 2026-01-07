@@ -1,0 +1,69 @@
+@startuml
+!includeurl https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+!includeurl https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title Кинобездна — Диаграмма контейнеров (To‑Be)
+
+Person(user, "Пользователь", "Мобильные приложения, Web и тд")
+
+System_Boundary(k8s, "Kubernetes кластер") {
+  Container(ingress, "Ingress Controller", "NGINX", "Входная точка HTTP(S)")
+  Container(proxy, "API Gateway (Proxy)", "Gateway", "Единая точка вызова, маршрутизация")
+
+  Container_Boundary(users_b, "Users Service") {
+    Container(users, "Users", "Go", "Профили, аутентификация")
+    ContainerDb(users_db, "Users DB", "PostgreSQL", "БД сервиса")
+  }
+
+  Container_Boundary(movies_b, "Movies Service") {
+    Container(movies, "Movies", "Go", "Метаданные фильмов")
+    ContainerDb(movies_db, "Movies DB", "PostgreSQL", "БД сервиса")
+  }
+
+  Container_Boundary(payments_b, "Payments Service") {
+    Container(payments, "Payments", "Go", "Платежи")
+    ContainerDb(payments_db, "Payments DB", "PostgreSQL", "БД сервиса")
+  }
+
+  Container_Boundary(subs_b, "Subscriptions Service") {
+    Container(subs, "Subscriptions", "Go", "Подписки")
+    ContainerDb(subs_db, "Subscriptions DB", "PostgreSQL", "БД сервиса")
+  }
+
+  Container_Boundary(ratings_b, "Ratings & Favorites Service") {
+    Container(ratings, "Ratings & Favorites", "Go", "Оценки, избранное")
+    ContainerDb(ratings_db, "Ratings DB", "PostgreSQL", "БД сервиса")
+  }
+
+  Container(eventsvc, "Events Service", "Go", "Продюсер/консьюмер событий")
+
+  Container(queue, "Kafka", "Kafka", "Шина событий")
+  Container(blob, "Object Storage", "S3", "Медиа/постеры")
+}
+
+System_Ext(payext, "Платёжная система", "Внешняя")
+System_Ext(reco, "Рекомендательная система", "Внешняя")
+System_Ext(partners, "Партнёры/лояльность/маркетплейсы", "Внешние")
+
+Rel(user, ingress, "HTTPS")
+Rel(ingress, proxy, "HTTP")
+
+Rel(proxy, users, "REST")
+Rel(proxy, movies, "REST")
+Rel(proxy, payments, "REST")
+Rel(proxy, subs, "REST")
+Rel(proxy, ratings, "REST")
+
+Rel(movies, blob, "S3 API (постеры/медиа)")
+
+Rel(users, queue, "Events →")
+Rel(movies, queue, "Events →")
+Rel(payments, queue, "Events →")
+Rel(subs, queue, "Events →")
+Rel(eventsvc, queue, "")
+
+Rel(payments, payext, "API/Webhooks")
+Rel(movies, reco, "API/события")
+Rel(proxy, partners, "REST/OAuth")
+
+@enduml
